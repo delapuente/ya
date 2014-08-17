@@ -327,16 +327,17 @@ define([], function () {
           expect(b).to.equal('more data');
           expect(c).to.equal('and more data');
           expect(d).to.equal('final data');
-          checkpoint(1);
+          done();
+        });
+
+        ya(function* () {
+          yield channel.send('and more data');
+          yield channel.send('final data');
         });
 
         ya(function* () {
           yield channel.send('data');
           yield channel.send('more data');
-          yield channel.send('and more data');
-          yield channel.send('final data');
-          expect(checkpoint.calledOnce).to.be.true;
-          done();
         });
       });
     });
