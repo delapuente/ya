@@ -1,0 +1,35 @@
+{
+  "name": "ya",
+  "version": "0.1.0",
+  "main": "dist/ya.js",
+  "license": "MIT",
+  "ignore": [
+    "build",
+    "demo",
+    ".editorconfig",
+    ".gitattributes",
+    ".gitignore",
+    "Gruntfile.js",
+    ".jshintrc",
+    "node_modules",
+    "src",
+    "test",
+    "git-hooks",
+    "package.json"
+  ],
+  "keywords": [
+    "coroutine",
+    "goroutine",
+    "channel",
+    "task"
+  ],
+  "authors": [
+    "Salvador de la Puente González <salva@unoyunodiez.com> (http://unoyunodiez.com) @salvadelapuente"
+  ],
+  "homepage": "https://github.com/lodr/ya",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/lodr/ya.git"
+  },
+  "dependencies": { }
+}

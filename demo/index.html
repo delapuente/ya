@@ -1,0 +1,31 @@
+<meta charset="UTF-8" />
+<script src="../dist/ya.js"></script>
+<script>
+  // Make a channel!
+  var pings = ya.channel();
+
+  // Launch a coroutine for producing messages!
+  ya(function* ping(pings) {
+    while (true) {
+      yield pings.send('ping ' + Date.now());
+    }
+  }, pings);
+
+  // Launch a coroutine to stay in the middle o both computations
+  ya(function* () {
+    var count = 1;
+    while (true) {
+      console.log('In the middle: ' + count++);
+      yield;
+    }
+  });
+
+  // Launch a coroutine for consuming messages!
+  ya(function* pong(pings) {
+    var msg;
+    while (true) {
+      msg = yield pings.get();
+      console.log(msg);
+    }
+  }, pings);
+</script>
