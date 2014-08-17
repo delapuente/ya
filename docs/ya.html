@@ -30,6 +30,11 @@
               
             </div>
             
+            <div class="content"><div class='highlight'><pre>
+define([], <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+<span class="hljs-pi">
+  'use strict'</span>;</pre></div></div>
+            
         </li>
         
         
@@ -39,14 +44,19 @@
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-2">&#182;</a>
               </div>
-              <p>We use a named requirejs module since the optimizer does not work with
-ES6.</p>
+              <p>In ES6, symbols are special objects that can be used to index other
+objects. As they are private to function scope, they become something
+like privates.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>define(<span class="hljs-string">'ya'</span>, [], <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
-<span class="hljs-pi">
-  'use strict'</span>;</pre></div></div>
+            <div class="content"><div class='highlight'><pre>
+  <span class="hljs-comment">/* jshint newcap: false */</span>
+  <span class="hljs-keyword">var</span> isReady = Symbol();
+  <span class="hljs-keyword">var</span> result = Symbol();
+  <span class="hljs-keyword">var</span> routineCanBeRescheduled = Symbol();
+  <span class="hljs-keyword">var</span> isNonBlockingSend = Symbol();
+  <span class="hljs-comment">/* jshint newcap: true */</span></pre></div></div>
             
         </li>
         
@@ -57,15 +67,11 @@ ES6.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-3">&#182;</a>
               </div>
-              <p>In ES6, symbols are special objects that can be used to index other
-objects. As they are private to function scope, they become something
-like privates.</p>
+              <p>The list of alive coroutines to be executed is ketp on a list.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>  <span class="hljs-keyword">var</span> isReady = Symbol();
-  <span class="hljs-keyword">var</span> result = Symbol();
-  <span class="hljs-keyword">var</span> routineCanBeRescheduled = Symbol();</pre></div></div>
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-keyword">var</span> coroutines = [];</pre></div></div>
             
         </li>
         
@@ -76,11 +82,12 @@ like privates.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-4">&#182;</a>
               </div>
-              <p>The list of alive coroutines to be executed is ketp on a list.</p>
+              <p>This flag indicates if clear() method has been called. It’s needed to
+abort execution from inside a routine.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>  <span class="hljs-keyword">var</span> coroutines = [];</pre></div></div>
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-keyword">var</span> clearCalled;</pre></div></div>
             
         </li>
         
@@ -101,7 +108,7 @@ the coroutines list and start running them if the list is not empty.</p>
     task[isReady] = <span class="hljs-literal">true</span>;
     task[result] = <span class="hljs-literal">undefined</span>;
     coroutines.push(task);
-    (coroutines.length === <span class="hljs-number">1</span>) &amp;&amp; run();
+    (coroutines.length === <span class="hljs-number">1</span>) &amp;&amp; setTimeout(run);
   }</pre></div></div>
             
         </li>
@@ -118,7 +125,8 @@ the routine.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">run</span><span class="hljs-params">()</span> </span>{</pre></div></div>
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">run</span><span class="hljs-params">()</span> </span>{
+    clearCalled = <span class="hljs-literal">false</span>;</pre></div></div>
             
         </li>
         
@@ -145,12 +153,16 @@ another run.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-8">&#182;</a>
               </div>
-              <p>If there are coroutines, pick the last one.</p>
+              <p>If there are coroutines, pick the last one. Default reschedule of the
+task consists into adding at the beginning.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> lastResult, execution, done, promise,
-        routine = coroutines.pop();</pre></div></div>
+        scheduleOperation = <span class="hljs-string">'unshift'</span>,
+        routine = coroutines.pop();
+
+    <span class="hljs-keyword">if</span> (routine[isReady]) {</pre></div></div>
             
         </li>
         
@@ -161,15 +173,15 @@ another run.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-9">&#182;</a>
               </div>
-              <p>A non-ready / blocked routine is simply ignored and rescheduled later.</p>
+              <p>Run the routine passing the channel promise’s result from the last
+run. In case of blocking on channel’s operations, the result will be
+sent values for get() operations or <code>undefined</code> for send() operations.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (!routine[isReady]) {
-      coroutines.unshift(routine);
-    }
-
-    <span class="hljs-keyword">else</span> {</pre></div></div>
+            <div class="content"><div class='highlight'><pre>      lastResult = routine[result];
+      routine[result] = <span class="hljs-literal">undefined</span>;
+      execution = routine.next(lastResult);</pre></div></div>
             
         </li>
         
@@ -180,15 +192,13 @@ another run.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-10">&#182;</a>
               </div>
-              <p>Run the routine passing the channel promise value from the last
-run. Promise value will be undefined for send() promises or the
-proper sent-to-the-channel value for get() promises.</p>
+              <p>If clear has been called inside the execution of the coroutine, abort
+further execution and rescheduling.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>      lastResult = routine[result];
-      routine[result] = <span class="hljs-literal">undefined</span>;
-      execution = routine.next(lastResult);
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> (clearCalled) { <span class="hljs-keyword">return</span>; }
+
       done = execution.done;
       promise = execution.value;</pre></div></div>
             
@@ -201,12 +211,13 @@ proper sent-to-the-channel value for get() promises.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-11">&#182;</a>
               </div>
-              <p>When routine is not finished and it is returning a promise-like object,
-it means the routine is waiting for the result of that promise.</p>
+              <p>If the routine is over, don’t reschedule.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> (!done &amp;&amp; promise &amp;&amp; <span class="hljs-keyword">typeof</span> promise.then === <span class="hljs-string">'function'</span>) {</pre></div></div>
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> (done) {
+        scheduleOperation = <span class="hljs-literal">null</span>;
+      }</pre></div></div>
             
         </li>
         
@@ -216,6 +227,22 @@ it means the routine is waiting for the result of that promise.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <p>When routine is not finished and it is returning a promise-like object,
+it means the routine is waiting for the result of that promise.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (promise &amp;&amp; <span class="hljs-keyword">typeof</span> promise.then === <span class="hljs-string">'function'</span>) {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-13">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-13">&#182;</a>
               </div>
               <p>The routine is marked as blocked to prevent the scheduler from
 running it.</p>
@@ -227,11 +254,11 @@ running it.</p>
         </li>
         
         
-        <li id="section-13">
+        <li id="section-14">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-13">&#182;</a>
+                <a class="pilcrow" href="#section-14">&#182;</a>
               </div>
               <p>And a fulfill callback is added to unblock the routine
 while saving the computation result for using when resuming the
@@ -239,28 +266,10 @@ routine.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>        promise.then((result) =&gt; {
+            <div class="content"><div class='highlight'><pre>        promise.then((data) =&gt; {
           routine[isReady] = <span class="hljs-literal">true</span>;
-          routine[result] = result;
+          routine[result] = data;
         });</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-14">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-14">&#182;</a>
-              </div>
-              <p>Some promises can ensure they will be resolved for the next run
-allowing the scheduler to reschedule the current routine immediately.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>        coroutines[promise[routineCanBeRescheduled] ? <span class="hljs-string">'push'</span> : <span class="hljs-string">'unshift'</span>](routine);
-      }
-    }</pre></div></div>
             
         </li>
         
@@ -271,12 +280,17 @@ allowing the scheduler to reschedule the current routine immediately.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-15">&#182;</a>
               </div>
-              <p>Schedule another run.</p>
+              <p>Some promises can ensure they will be resolved for the next run
+allowing the scheduler to reschedule the current routine immediately.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    setTimeout(run);
-  }</pre></div></div>
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (promise[routineCanBeRescheduled]) {
+          scheduleOperation = <span class="hljs-string">'push'</span>;
+        }
+      }
+
+    }</pre></div></div>
             
         </li>
         
@@ -287,16 +301,13 @@ allowing the scheduler to reschedule the current routine immediately.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-16">&#182;</a>
               </div>
-              <p>The channel function returns a new channel object to be used to communicate
-between coroutines. When coroutines send values and there are no consumers
-the sender blocks. The same happens for coroutines getting values when
-there are no values to be consumed.</p>
-<p>If a capacity is passed to the channel, then the channel is said to be
-buffered and it won’t block senders until completely filled.</p>
+              <p>Reschedule the routine.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">channel</span><span class="hljs-params">(capacity)</span> </span>{</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (scheduleOperation) {
+      coroutines[scheduleOperation](routine);
+    }</pre></div></div>
             
         </li>
         
@@ -307,12 +318,12 @@ buffered and it won’t block senders until completely filled.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-17">&#182;</a>
               </div>
-              <p>A capacity of <code>0</code> is invalid and defaults in <code>1</code> what means an unbuffered
-channel.</p>
+              <p>And schedule another run.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    capacity = capacity || <span class="hljs-number">1</span>;</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    setTimeout(run);
+  }</pre></div></div>
             
         </li>
         
@@ -323,13 +334,19 @@ channel.</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-18">&#182;</a>
               </div>
-              <p>When a value is sent to the channel but there is no one asking for that
-value, we promise the sender that someone will retrieve the value and we
-add a the promise resolver and the sent value to this field.</p>
+              <p>The channel function returns a new channel object to be used to communicate
+between coroutines. When coroutines send values and there are no consumers
+the sender blocks. The same happens for coroutines getting values when
+there are no values to be consumed.</p>
+<p>If a capacity is passed to the channel, then the channel is said to be
+buffered and it won’t block senders until completely filled. The capacity
+value means how many unattended send() calls are allowed before blocking.</p>
+<p>For instance a 3 buffered channel will block a coroutine if this is
+sending the fourth item or greater.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> toBeRetrievedPromises = [];</pre></div></div>
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">channel</span><span class="hljs-params">(capacity)</span> </span>{</pre></div></div>
             
         </li>
         
@@ -339,6 +356,39 @@ add a the promise resolver and the sent value to this field.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+              <p>An unbuffered channel does not allow any unattended item. Each send()
+call will block unless there is a getter waiting for the value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    capacity = capacity || <span class="hljs-number">0</span>;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-20">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+              <p>When a value is sent to the channel but there is no one asking for that
+value, we promise the sender that someone will retrieve the value and we
+add a the promise resolver and the sent value to this collection.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> toBeRetrievedPromises = [];</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-21">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-21">&#182;</a>
               </div>
               <p>When a value is requested from the channel but there is no data available
 we promise the getter that someone will send a value to be consumed and
@@ -351,49 +401,17 @@ we add the resolver for that promise.</p>
         </li>
         
         
-        <li id="section-20">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-20">&#182;</a>
-              </div>
-              <p>The channel object consist in two methods: get() and send().</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">return</span> {</pre></div></div>
-            
-        </li>
-        
-        
-        <li id="section-21">
-            <div class="annotation">
-              
-              <div class="pilwrap ">
-                <a class="pilcrow" href="#section-21">&#182;</a>
-              </div>
-              <p>get() is for retrieving values from the channel.</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre>      get: <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">get</span><span class="hljs-params">()</span> </span>{</pre></div></div>
-            
-        </li>
-        
-        
         <li id="section-22">
             <div class="annotation">
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-22">&#182;</a>
               </div>
-              <p>First check if there are values to be consumed. If so, there will be
-promises’ resolvers in addition to the values being sent.</p>
+              <p>The channel object consists in two methods: get() and send().</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">var</span> promiseForTheGetter;
-        <span class="hljs-keyword">if</span> (toBeRetrievedPromises.length &gt; <span class="hljs-number">0</span>) {</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">return</span> {</pre></div></div>
             
         </li>
         
@@ -403,6 +421,38 @@ promises’ resolvers in addition to the values being sent.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+              <p>get() is for retrieving values from the channel.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      get: <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">get</span><span class="hljs-params">()</span> </span>{
+        <span class="hljs-keyword">var</span> promiseForTheGetter;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+              <p>First check if there are values to be consumed. If so, there will be
+promises’ resolvers in addition to the values being sent.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (toBeRetrievedPromises.length &gt; <span class="hljs-number">0</span>) {</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-25">&#182;</a>
               </div>
               <p>Each promise entry consists on a value and the resolver to tell
 the sender that its value is about to be consumed and it will
@@ -415,27 +465,51 @@ be unblocked.</p>
         </li>
         
         
-        <li id="section-24">
+        <li id="section-26">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-24">&#182;</a>
+                <a class="pilcrow" href="#section-26">&#182;</a>
               </div>
               <p>Unblocks the sender! But notice it won’t be executed until run
 will be called again.</p>
+<p>The check about existence of the resolver is needed as buffered
+channels may not require to always warn senders.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>          resolver();</pre></div></div>
+            <div class="content"><div class='highlight'><pre>          resolver &amp;&amp; resolver();</pre></div></div>
             
         </li>
         
         
-        <li id="section-25">
+        <li id="section-27">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-25">&#182;</a>
+                <a class="pilcrow" href="#section-27">&#182;</a>
+              </div>
+              <p>As the collection of unattended items has shifted, it’s possible
+for a blocked routine to have entered into the buffered section
+of the channel. If so, the routine can be unblocked.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>          <span class="hljs-keyword">if</span> (capacity &gt; <span class="hljs-number">0</span> &amp;&amp;
+              toBeRetrievedPromises.length &gt;= capacity) {
+            resolver = toBeRetrievedPromises[capacity - <span class="hljs-number">1</span>].resolver;
+            toBeRetrievedPromises[capacity - <span class="hljs-number">1</span>].resolver = <span class="hljs-literal">null</span>;
+            resolver &amp;&amp; resolver();
+          }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-28">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-28">&#182;</a>
               </div>
               <p>We will return an already solved promise to the getter with the
 value to be consumed.</p>
@@ -447,11 +521,11 @@ value to be consumed.</p>
         </li>
         
         
-        <li id="section-26">
+        <li id="section-29">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-26">&#182;</a>
+                <a class="pilcrow" href="#section-29">&#182;</a>
               </div>
               <p>The scheduler is informed it can reschedule the coroutine
 immediately.</p>
@@ -464,15 +538,15 @@ immediately.</p>
         </li>
         
         
-        <li id="section-27">
+        <li id="section-30">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-27">&#182;</a>
+                <a class="pilcrow" href="#section-30">&#182;</a>
               </div>
               <p>In the other hand, if there are no values to be consumed, we make
 a promise and leave the resolver as a way for the getter to be
-warned when a value is available.</p>
+notified when a value is available.</p>
 
             </div>
             
@@ -488,11 +562,11 @@ warned when a value is available.</p>
         </li>
         
         
-        <li id="section-28">
+        <li id="section-31">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-28">&#182;</a>
+                <a class="pilcrow" href="#section-31">&#182;</a>
               </div>
               <p>send() is for sending values to the channel.</p>
 
@@ -504,11 +578,11 @@ warned when a value is available.</p>
         </li>
         
         
-        <li id="section-29">
+        <li id="section-32">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-29">&#182;</a>
+                <a class="pilcrow" href="#section-32">&#182;</a>
               </div>
               <p>First check if there are petitioners waiting to be provided with
 values for consuming.</p>
@@ -520,14 +594,14 @@ values for consuming.</p>
         </li>
         
         
-        <li id="section-30">
+        <li id="section-33">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-30">&#182;</a>
+                <a class="pilcrow" href="#section-33">&#182;</a>
               </div>
-              <p>Each entry simply consists in a resolver to pass the getter the
-sending value.</p>
+              <p>Each entry simply consists in a resolver to notify the getter with
+the sending value.</p>
 
             </div>
             
@@ -536,11 +610,11 @@ sending value.</p>
         </li>
         
         
-        <li id="section-31">
+        <li id="section-34">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-31">&#182;</a>
+                <a class="pilcrow" href="#section-34">&#182;</a>
               </div>
               <p>Unblocks the getter! And again, it won’t be executed until the
 next run.</p>
@@ -552,11 +626,11 @@ next run.</p>
         </li>
         
         
-        <li id="section-32">
+        <li id="section-35">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-32">&#182;</a>
+                <a class="pilcrow" href="#section-35">&#182;</a>
               </div>
               <p>We will return an already resolved promise to the sender saying
 its value has been consumed immediately.</p>
@@ -568,56 +642,78 @@ its value has been consumed immediately.</p>
         </li>
         
         
-        <li id="section-33">
+        <li id="section-36">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-33">&#182;</a>
+                <a class="pilcrow" href="#section-36">&#182;</a>
               </div>
               <p>And again, the promise will inform the scheduler it can
 reschedule the routine immediately.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>          promiseForTheSender[routineCanBeRescheduled] = <span class="hljs-literal">true</span>;
+            <div class="content"><div class='highlight'><pre>          promiseForTheSender[isNonBlockingSend] = <span class="hljs-literal">true</span>;
         }</pre></div></div>
             
         </li>
         
         
-        <li id="section-34">
+        <li id="section-37">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-34">&#182;</a>
+                <a class="pilcrow" href="#section-37">&#182;</a>
               </div>
               <p>If there are no petitioners waiting for values, promise the sender
 its value will be consumed by enqueuing a pair of promise resolver
-and the to-be-sent value.</p>
+and the value to be consumed.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">else</span> {
-          promiseForTheSender = <span class="hljs-keyword">new</span> Promise(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(resolver)</span> </span>{
-            toBeRetrievedPromises.push({ resolver: resolver, value: value });
-          });</pre></div></div>
+
+          <span class="hljs-keyword">var</span> isFull = toBeRetrievedPromises.length &gt;= capacity;</pre></div></div>
             
         </li>
         
         
-        <li id="section-35">
+        <li id="section-38">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-35">&#182;</a>
+                <a class="pilcrow" href="#section-38">&#182;</a>
               </div>
-              <p>But if the buffer is not full, the routine can be resumed
-immediately.</p>
+              <p>If the buffer is not full, the promise can be fulfilled and the
+routine can be immediately resumed.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>          <span class="hljs-keyword">var</span> isFull = toBeRetrievedPromises &gt;= capacity;
-          promiseForTheSender[routineCanBeRescheduled] = !isFull;
+            <div class="content"><div class='highlight'><pre>          <span class="hljs-keyword">if</span> (!isFull) {
+            promiseForTheSender = Promise.resolve();
+            toBeRetrievedPromises.push({ resolver: <span class="hljs-literal">null</span>, value: value });
+            promiseForTheSender[routineCanBeRescheduled] = <span class="hljs-literal">true</span>;
+          }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-39">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-39">&#182;</a>
+              </div>
+              <p>But if it’s full, then the promise remains and the sender will
+block until someone consumes the value.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>          <span class="hljs-keyword">else</span> {
+            promiseForTheSender = <span class="hljs-keyword">new</span> Promise(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(resolver)</span> </span>{
+              toBeRetrievedPromises.push({ resolver: resolver, value: value });
+            });
+          }
         }
 
         <span class="hljs-keyword">return</span> promiseForTheSender;
@@ -628,17 +724,38 @@ immediately.</p>
         </li>
         
         
-        <li id="section-36">
+        <li id="section-40">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-36">&#182;</a>
+                <a class="pilcrow" href="#section-40">&#182;</a>
+              </div>
+              <p>The <code>clear()</code> method empties the coroutines list avoiding run to executed
+and stablishes the <code>clearCalled</code> flag to be checked in those cases
+<code>clear()</code> is called from inside a routine.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">clear</span><span class="hljs-params">()</span> </span>{
+    coroutines = [];
+    clearCalled = <span class="hljs-literal">true</span>;
+  }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-41">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-41">&#182;</a>
               </div>
               <p>Assemble the module and publish.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre>  ya.channel = channel;
+  ya.clear = clear;
   <span class="hljs-keyword">return</span> ya;
 });</pre></div></div>
             
