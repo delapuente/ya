@@ -1,8 +1,12 @@
 # ya!
 
-ya! is a [go routine](https://gobyexample.com/goroutine) implementation in ES6 using generators and promises, i.e. tasks.
+**ya!** is a [go routine](https://gobyexample.com/goroutine) partial implementation in ES6 using generators and promises in a similar way as [task.js](http://taskjs.org/) operates.
+
+**ya!** is an example library more focused on showing generators applications than on being used in production environments. Nowadays it only works on [browsers supporting ES6 generators](http://kangax.github.io/compat-table/es6/#Generators%20%28yield%29) such as [Mozilla Firefox](https://www.mozilla.org/en-US/firefox/new/).
 
 ## Example
+
+Here you have a complete and functional example using ya to calculate... For more examples, please read after the sample code.
 
 ```javascript
 // Make a channel!
@@ -34,15 +38,33 @@ ya(function* pong(pings) {
 });
 ```
 
-## API
+Lots of execution examples can be found inside the [`test/spec/ya.js`](https://raw.githubusercontent.com/lodr/ya/master/test/spec/ya.js) file. As the library is growing in maturity, please feel free to open issues on GitHub if you consider the behaviour is not the expected (I'm not a _go guru_ so any feedback is welcome). 
 
-### ya
+## Documentation
 
-ya is the main function (it means _now_ in Spanish) and it's used to start a corotuine.
+You can find the annotated source on http://github.io/lodr/ya but here you have the API documentation.
 
-### channel#get
+### ya(generator[, ...arguments])
 
-### channel#set
+Function `ya()` (which means _now_ in Spanish) is used to start a coroutine. It accepts a generator function and an optional list of arguments that will be passed to the generator when called. `ya()` calls enqueues coroutines in such a way the lastest coroutines are run first. The function returns a positive interger id to uniquely identify the coroutine.
+
+### ya.clear()
+
+Abort **all** the coroutines preventing them for further execution. If `ya.clear()` is called from inside a coroutine, it is not aborted immediately but when reaching the next `yield` or `return`.
+
+### ya.channel([capacity=0])
+
+Returns a new channel. A channel is a way to communicate coroutines sending and asking for values. Coroutines block when sending data until some other coroutine ask for that data. In the same way, coroutine getting data from a channel block until there are some data to be consumed.
+
+If a capacity greater than 0 is provided, the channel is said to be buffered. This allow sending coroutines to not block until enough data is sent to the channel. Precisely the same amount of data indicated by the `capacity` parameter.
+
+### channel#get()
+
+Gets a value from the channel. It must be used with `yield` so the coroutine can block if there is no data to be consumed.
+
+### channel#send(data)
+
+Sends data to the channel. For unbuffered channels, a `send()` operation blocks the cororutine until some other process makes a `get()` call to the same channel.
 
 ## Installation
 
@@ -70,18 +92,12 @@ require(['/path/to/ya'], function (ya) { ... });
     
 ### Avoiding collisions
 
-If for some reason you already have a `ya` global variable in your global namespace. You can call `ya.restore()` to get the `ya` function and restore the former value of the `ya` variable.
+If for some reason you already have a `ya` global variable in your global namespace. You can call `ya.restore()` to get the `ya` function and restore the former value of the `ya` global variable.
 
 ```javascript
 var myNameForYa = ya.restore();
 ```
     
-### Environment requirements
-
-
-## Documentation
-
-
 ## License
 
 MIT. See `LICENSE.txt` in this directory.

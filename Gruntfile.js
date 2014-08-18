@@ -240,7 +240,8 @@ module.exports = function(grunt) {
     'clean:temp'
   ]);
   grunt.registerTask('min', ['uglify:pack']);
-  grunt.registerTask('dev', ['watch']);
+  // Derive dev task to debug until PhantomJS support ES6 features.
+  grunt.registerTask('dev', ['debug']);
   grunt.registerTask('debug', ['connect:debug', 'watch:debug']);
 
   grunt.registerTask('hookmeup', ['shell:hooks']);

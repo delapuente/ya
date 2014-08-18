@@ -55,7 +55,7 @@ define([], function () {
         expect(spy.called).to.be.false;
       });
 
-      it('run the task until completion.', function (done) {
+      it('runs the task until completion.', function (done) {
         var test = '';
         ya(function* () {
           var count = 0;
