@@ -79,7 +79,7 @@ module.exports = function(grunt) {
       pack: {
         src: [
           '<%= files.intro %>',
-          '<%= dirs.src %>/ya.js',
+          '<%= files.preBuild %>',
           '<%= files.outro %>'
         ],
         dest: '<%= files.build %>',
@@ -226,7 +226,7 @@ module.exports = function(grunt) {
   });
 
   grunt.registerTask('default', ['docs', 'lint', 'test', 'pack', 'min']);
-  grunt.registerTask('dist', ['docs', 'pack']);
+  grunt.registerTask('dist', ['docs', 'pack', 'min']);
   grunt.registerTask('docs', ['clean:docs', 'docco']);
   grunt.registerTask('lint', ['jshint']);
   grunt.registerTask('test', ['connect:test', 'mocha']);
@@ -234,6 +234,7 @@ module.exports = function(grunt) {
   grunt.registerTask('pack', [
     'clean:dist',
     'clean:temp',
+    'requirejs:pack',
     'concat:pack',
     'copy:pack',
     'clean:temp'

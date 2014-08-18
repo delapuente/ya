@@ -1,4 +1,3 @@
-
 define([], function () {
 
   'use strict';
@@ -8,6 +7,7 @@ define([], function () {
   // like privates.
 
   /* jshint newcap: false */
+  var id = Symbol();
   var isReady = Symbol();
   var result = Symbol();
   var routineCanBeRescheduled = Symbol();
@@ -16,6 +16,7 @@ define([], function () {
 
   // The list of alive coroutines to be executed is ketp on a list.
   var coroutines = [];
+  var nextTaskId = 1;
 
   // This flag indicates if clear() method has been called. It's needed to
   // abort execution from inside a routine.
@@ -23,12 +24,15 @@ define([], function () {
 
   // ya() function simply initializes the generator, then push it at the end of
   // the coroutines list and start running them if the list is not empty.
-  function ya(generator, ...args) {
-    var task = generator(...args);
+  function ya(generator) {
+    var args = [].slice.call(arguments, 1);
+    var task = generator.apply(undefined, args);
     task[isReady] = true;
     task[result] = undefined;
+    task[id] = nextTaskId++;
     coroutines.push(task);
     (coroutines.length === 1) && setTimeout(run);
+    return task[id];
   }
 
   // Run pìcks the last coroutine, execute it to the next yield and reschedule
@@ -42,18 +46,14 @@ define([], function () {
 
     // If there are coroutines, pick the last one. Default reschedule of the
     // task consists into adding at the beginning.
-    var lastResult, execution, done, promise,
+    var execution, done, promise,
         scheduleOperation = 'unshift',
         routine = coroutines.pop();
 
     if (routine[isReady]) {
 
-      // Run the routine passing the channel promise's result from the last
-      // run. In case of blocking on channel's operations, the result will be
-      // sent values for get() operations or `undefined` for send() operations.
-      lastResult = routine[result];
-      routine[result] = undefined;
-      execution = routine.next(lastResult);
+      // Advances the routine to the next yield, return or error.
+      execution = runRoutine(routine);
 
       // If clear has been called inside the execution of the coroutine, abort
       // further execution and rescheduling.
@@ -78,7 +78,7 @@ define([], function () {
         // And a fulfill callback is added to unblock the routine
         // while saving the computation result for using when resuming the
         // routine.
-        promise.then((data) => {
+        promise.then(function (data) {
           routine[isReady] = true;
           routine[result] = data;
         });
@@ -99,6 +99,35 @@ define([], function () {
 
     // And schedule another run.
     setTimeout(run);
+  }
+
+  // The function is isolated to minimize the impact of the try-catch.
+  function runRoutine(routine) {
+    var lastResult, execution, executionError;
+
+    // Runs a single routine passing the channel promise's result from the last
+    // run. In case of blocking on channel's operations, the result will be
+    // sent values for get() operations or `undefined` for send() operations.
+    try {
+      lastResult = routine[result];
+      routine[result] = undefined;
+      execution = routine.next(lastResult);
+    }
+
+    // If there is an error during the execution, the task is aborted and the
+    // onerror callback is called with an error object with the task id and the
+    // real error.
+    catch (e) {
+      if (typeof ya.onerror === 'function') {
+        executionError = { taskId: routine[id], error: e };
+        ya.onerror(executionError);
+      }
+      // A fake execution is crafted to terminate the execution of the failing
+      // routine.
+      execution = { done: true };
+    }
+
+    return execution;
   }
 
   // The channel function returns a new channel object to be used to communicate
@@ -141,7 +170,11 @@ define([], function () {
           // Each promise entry consists on a value and the resolver to tell
           // the sender that its value is about to be consumed and it will
           // be unblocked.
-          var { resolver, value } = toBeRetrievedPromises.shift();
+          var resolver, value,
+              entry = toBeRetrievedPromises.shift();
+
+          resolver = entry.resolver;
+          value = entry.value;
 
           // Unblocks the sender! But notice it won't be executed until run
           // will be called again.
@@ -191,7 +224,7 @@ define([], function () {
 
           // Each entry simply consists in a resolver to notify the getter with
           // the sending value.
-          var { resolver } = toBeFilledPromises.shift();
+          var resolver = toBeFilledPromises.shift().resolver;
 
           // Unblocks the getter! And again, it won't be executed until the
           // next run.

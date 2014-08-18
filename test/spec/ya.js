@@ -30,6 +30,12 @@ define([], function () {
         });
       });
 
+      it('returns a unique task id.', function () {
+        var id = ya(function* () {
+        });
+        expect(id).to.be.a('number');
+      });
+
       it('accepts additional arguments to be passed as arguments for the ' +
          'generator.', function (done) {
         var arg0 = {},
@@ -101,6 +107,51 @@ define([], function () {
 
       });
 
+    });
+
+    describe('ya error handling', function () {
+      it('silences the error occurring inside a task and terminates the task.',
+         function (done) {
+        ya(function* () {
+          yield checkpoint(2);
+        });
+
+        ya(function* () {
+          throw new Error();
+        });
+
+        ya(function* () {
+          yield checkpoint(1);
+          expect(checkpoint.callCount).to.equal(2);
+          done();
+        });
+      });
+
+      it('calls ya.onerror if occurring an error inside some task.',
+         function (done) {
+        var throwingTask,
+            throwingError = new Error();
+
+        ya.onerror = function (executionError) {
+          var { taskId, error } = executionError;
+          expect(taskId).to.equal(throwingTask);
+          expect(error).to.equal(throwingError);
+        };
+
+        ya(function* () {
+          yield checkpoint(2);
+        });
+
+        throwingTask = ya(function* () {
+          throw throwingError;
+        });
+
+        ya(function* () {
+          yield checkpoint(1);
+          expect(checkpoint.callCount).to.equal(2);
+          done();
+        });
+      });
     });
 
     describe('ya.clear() method', function() {
