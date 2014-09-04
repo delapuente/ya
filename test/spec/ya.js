@@ -7,13 +7,11 @@ define([], function () {
 
     var ya;
     var checkpoint = sinon.spy();
-    var resumed = sinon.spy();
 
     beforeEach(function (done) {
       context(['src/ya'], function (module) {
         ya = module;
         checkpoint.reset();
-        resumed.reset();
         done();
       });
     });
@@ -156,16 +154,15 @@ define([], function () {
 
     describe('ya.clear() method', function() {
       it('aborts all executions.', function (done) {
-        var spy = sinon.spy();
         ya(function* () {
           while (true) {
-            spy();
+            checkpoint();
             ya.clear();
             yield;
           }
         });
         setTimeout(function () {
-          expect(spy.calledOnce).to.be.true;
+          expect(checkpoint.calledOnce).to.be.true;
           done();
         }, 100);
       });
@@ -174,6 +171,8 @@ define([], function () {
     describe('ya channel instance', function () {
 
       it('allows coroutine communications.', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel();
         var expectedMessages = ['A', 'B', 'C'];
         var receivedMessages = [];
@@ -193,8 +192,8 @@ define([], function () {
       });
 
       it('blocks the sending coroutine until there is a request for the sent ' +
-         'data.',
-         function (done) {
+         'data.', function (done) {
+        ya.onerror = function (error) { done(error.error); };
 
         var channel = ya.channel();
 
@@ -206,12 +205,12 @@ define([], function () {
         ya(function* sender() {
           yield channel.send('data');
           expect(true).to.be.false;
-          done();
         });
       });
 
       it('blocks the getting coroutine until there are available data.',
          function (done) {
+        ya.onerror = function (error) { done(error.error); };
 
         var channel = ya.channel();
 
@@ -223,12 +222,13 @@ define([], function () {
         ya(function* getter() {
           yield channel.get();
           expect(true).to.be.false;
-          done();
         });
       });
 
       it('does not block the sending coroutine until filling all the buffer ' +
          '(unbuffered).', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel();
         sinon.spy(channel, 'send');
 
@@ -240,12 +240,13 @@ define([], function () {
         ya(function* sender() {
           yield channel.send('data');
           expect(true).to.be.false;
-          done();
         });
       });
 
       it('does not block the sending coroutine until filling all the buffer ' +
          '(buffered).', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel(3);
 
         ya(function* spy() {
@@ -261,12 +262,13 @@ define([], function () {
 
           yield channel.send('and more');
           expect(true).to.be.false;
-          done();
         });
       });
 
       it('resumes the sending coroutine as the channel gets empty below its ' +
          'buffered capacity (one task).', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel(3);
 
         ya(function* spy() {
@@ -294,12 +296,13 @@ define([], function () {
           yield;
 
           expect(true).to.be.false;
-          done();
         });
       });
 
       it('resumes sending coroutines as the channel gets empty below its ' +
          'buffered capacity (two tasks: only one resumes).', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel(3);
 
         ya(function* spy() {
@@ -333,6 +336,8 @@ define([], function () {
 
       it('resumes sending coroutines as the channel gets empty below its ' +
          'buffered capacity (two tasks: both resume).', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel(3);
 
         ya(function* spy() {
@@ -367,6 +372,8 @@ define([], function () {
 
       it('keeps the order in which the elments have been sent.',
          function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
         var channel = ya.channel(3);
 
         ya(function* () {
@@ -391,6 +398,59 @@ define([], function () {
           yield channel.send('more data');
         });
       });
+    });
+
+    describe('ya.select() method', function() {
+
+      it('accepts sequences of ya.case() results. Select blocks the routine ' +
+         'until one of the cases\' channels is ready.', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
+        var channelData, channel = ya.channel();
+        var expectedData = {};
+
+        ya(function* () {
+          yield channel.send(expectedData); // does not block
+        });
+
+        ya(function* () {
+          yield ya.select( // it blocks
+            ya.$case('get', channel, function (data) {
+              channelData = data;
+              checkpoint();
+            })
+          );
+          expect(channelData).to.equals(expectedData);
+          expect(checkpoint.calledOnce).to.be.true;
+          done();
+        });
+      });
+
+      it('accepts sequences of ya.case() results. If the channel is ready, ' +
+         'routine does not block.', function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
+        var channelData, channel = ya.channel(1);
+        var expectedData = {};
+
+        ya(function* () {
+          expect(false).to.be.true;
+        });
+
+        ya(function* () {
+          yield channel.send(expectedData); // does not blocks
+          yield ya.select( // does not block
+            ya.$case('get', channel, function (data) {
+              channelData = data;
+              checkpoint();
+            })
+          );
+          expect(channelData).to.equals(expectedData);
+          expect(checkpoint.calledOnce).to.be.true;
+          done();
+        });
+      });
+
     });
 
   });

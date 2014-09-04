@@ -11,7 +11,7 @@ define([], function () {
   var isReady = Symbol();
   var result = Symbol();
   var routineCanBeRescheduled = Symbol();
-  var isNonBlockingSend = Symbol();
+  var canProceed = Symbol();
   /* jshint newcap: true */
 
   // The list of alive coroutines to be executed is ketp on a list.
@@ -158,7 +158,7 @@ define([], function () {
     var toBeFilledPromises = [];
 
     // The channel object consists in two methods: get() and send().
-    return {
+    var channelInterface = {
       // get() is for retrieving values from the channel.
       get: function get() {
         var promiseForTheGetter;
@@ -236,7 +236,7 @@ define([], function () {
 
           // And again, the promise will inform the scheduler it can
           // reschedule the routine immediately.
-          promiseForTheSender[isNonBlockingSend] = true;
+          promiseForTheSender[routineCanBeRescheduled] = true;
         }
 
         // If there are no petitioners waiting for values, promise the sender
@@ -266,6 +266,91 @@ define([], function () {
         return promiseForTheSender;
       }
     };
+
+    channelInterface[canProceed] = function (type) {
+      if (type === 'get') {
+        return toBeRetrievedPromises.length > 0;
+      }
+      else if (type === 'send') {
+        return toBeFilledPromises.length > 0 ||
+               toBeRetrievedPromises.length < capacity;
+      }
+      else {
+        throw new Error('Channel operation unknown');
+      }
+    };
+    return channelInterface;
+  }
+
+  function select() {
+    var clauses = [].slice.call(arguments, 0);
+    var readyClause = checkChannels(clauses);
+
+    var selectPromise;
+    if (readyClause) {
+      selectPromise = readyClause.doChannelOperation();
+    }
+    else {
+      selectPromise = new Promise(function (resolve) {
+        scheduleAnotherCheck();
+
+        function scheduleAnotherCheck() {
+          setTimeout(function () {
+            var readyClause = checkChannels(clauses);
+            if (!readyClause) {
+              scheduleAnotherCheck();
+            }
+            else {
+              var channelPromise = readyClause.doChannelOperation();
+              channelPromise.then(function (value) { resolve(value); });
+              selectPromise.then(readyClause.callback);
+              selectPromise[routineCanBeRescheduled] =
+                channelPromise[routineCanBeRescheduled];
+            }
+          });
+        }
+      });
+    }
+    return selectPromise;
+
+    function checkChannels(clauses) {
+      var readyClauses = [];
+      clauses.forEach(function (caseClause) {
+        var clauseCanProceed = caseClause.channel[canProceed](caseClause.type);
+        if (clauseCanProceed) {
+          readyClauses.push(caseClause);
+        }
+      });
+      if (readyClauses.length) {
+        var randomIndex = Math.floor(Math.random() * readyClauses.length);
+        var choosen = readyClauses[randomIndex];
+        return choosen;
+      }
+      return null;
+    }
+
+  }
+
+  function $case(type) {
+    var caseClause = { type: type };
+    if (type === 'get' || type === '<-') {
+      caseClause.type = 'get';
+      caseClause.channel = arguments[1];
+      caseClause.callback = arguments[2];
+    }
+    else if (type === 'send' || type === '->') {
+      caseClause.type = 'send';
+      caseClause.sendingValue = arguments[1];
+      caseClause.channel = arguments[2];
+      caseClause.callback = arguments[3];
+    }
+    else {
+      throw new Error('Unknown channel operation.');
+    }
+    caseClause.doChannelOperation = function () {
+      return caseClause.channel[caseClause.type](caseClause.sendingValue);
+    };
+    return caseClause;
   }
 
   // The `clear()` method empties the coroutines list avoiding run to executed
@@ -279,5 +364,7 @@ define([], function () {
   // Assemble the module and publish.
   ya.channel = channel;
   ya.clear = clear;
+  ya.select = select;
+  ya.$case = $case;
   return ya;
 });
