@@ -402,8 +402,15 @@ define([], function () {
 
     describe('ya.select() method', function() {
 
-      it('accepts sequences of ya.case() results. Select blocks the routine ' +
-         'until one of the cases\' channels is ready.', function (done) {
+      var realRandom = Math.random;
+
+      afterEach(function () {
+        Math.random = realRandom;
+      });
+
+      it('accepts sequences of ya.$case() results. Select blocks the routine ' +
+         'until one of the cases\' channels is ready (one case).',
+         function (done) {
         ya.onerror = function (error) { done(error.error); };
 
         var channelData, channel = ya.channel();
@@ -426,7 +433,80 @@ define([], function () {
         });
       });
 
-      it('accepts sequences of ya.case() results. If the channel is ready, ' +
+      it('accepts sequences of ya.$case() results. Select blocks the routine ' +
+         'until one of the cases\' channels is ready (several cases).',
+         function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
+        var channelData,
+            channelA = ya.channel(),
+            channelB = ya.channel();
+
+        var expectedDataB = {};
+
+        ya(function* () {
+          yield channelB.send(expectedDataB); // does not block
+        });
+
+        ya(function* () {
+          yield ya.select( // it blocks
+            ya.$case('get', channelA, function (data) {
+              channelData = data;
+              expect(false).to.be.true;
+            }),
+            ya.$case('get', channelB, function (data) {
+              channelData = data;
+              checkpoint();
+            })
+          );
+          expect(channelData).to.equals(expectedDataB);
+          expect(checkpoint.calledOnce).to.be.true;
+          done();
+        });
+      });
+
+      it('accepts sequences of ya.$case() results. If more than one channel ' +
+         'is ready, one random is selected.',
+         function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
+        var channelData,
+            channelA = ya.channel(),
+            channelB = ya.channel();
+
+        var expectedDataA = { data: 'A' },
+            expectedDataB = { data: 'B' };
+
+        sinon.stub(Math, 'random').returns(0.75);
+
+        ya(function* () {
+          yield channelA.send(expectedDataA); // it blocks
+          expect(false).to.be.true;
+        });
+
+        ya(function* () {
+          yield channelB.send(expectedDataB); // it blocks
+          expect(false).to.be.true;
+        });
+
+        ya(function* () {
+          yield ya.select( // it blocks
+            ya.$case('get', channelA, function (data) {
+              channelData = data;
+              expect(false).to.be.true;
+            }),
+            ya.$case('get', channelB, function (data) {
+              channelData = data;
+              checkpoint();
+            })
+          );
+          expect(channelData).to.equals(expectedDataB);
+          expect(checkpoint.calledOnce).to.be.true;
+          done();
+        });
+      });
+
+      it('accepts sequences of ya.$case() results. If the channel is ready, ' +
          'routine does not block.', function (done) {
         ya.onerror = function (error) { done(error.error); };
 
@@ -448,6 +528,28 @@ define([], function () {
           expect(channelData).to.equals(expectedData);
           expect(checkpoint.calledOnce).to.be.true;
           done();
+        });
+      });
+
+      it('$case() callbacks are executed just before the routine is resumed.',
+         function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
+        var channel = ya.channel();
+        var expectedData = {};
+
+        ya(function* () {
+          yield channel.send(expectedData); // does not block
+        });
+
+        ya(function* () {
+          yield ya.select( // it blocks
+            ya.$case('get', channel, function (data) {
+              expect(data).to.equals(expectedData);
+              done();
+            })
+          );
+          expect(true).to.be.false;
         });
       });
 

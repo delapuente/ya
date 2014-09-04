@@ -9,6 +9,8 @@ define([], function () {
   /* jshint newcap: false */
   var id = Symbol();
   var isReady = Symbol();
+  var isBlockedOnSelect = Symbol();
+  var trySelect = Symbol();
   var result = Symbol();
   var routineCanBeRescheduled = Symbol();
   var canProceed = Symbol();
@@ -88,8 +90,17 @@ define([], function () {
         if (promise[routineCanBeRescheduled]) {
           scheduleOperation = 'push';
         }
-      }
 
+        routine[isBlockedOnSelect] = promise[isBlockedOnSelect];
+        routine[trySelect] = promise[trySelect];
+      }
+    }
+
+    else if (routine[isBlockedOnSelect]) {
+      var routineCanBeResumed = routine[trySelect]();
+      if (routineCanBeResumed) {
+        scheduleOperation = 'push';
+      }
     }
 
     // Reschedule the routine.
@@ -284,36 +295,23 @@ define([], function () {
 
   function select() {
     var clauses = [].slice.call(arguments, 0);
-    var readyClause = checkChannels(clauses);
+    var readyClause = chooseReadyClause(clauses);
 
-    var selectPromise;
+    var selectPromise, resolveSelectPromise;
     if (readyClause) {
       selectPromise = readyClause.doChannelOperation();
+      selectPromise.then(readyClause.callback);
     }
     else {
       selectPromise = new Promise(function (resolve) {
-        scheduleAnotherCheck();
-
-        function scheduleAnotherCheck() {
-          setTimeout(function () {
-            var readyClause = checkChannels(clauses);
-            if (!readyClause) {
-              scheduleAnotherCheck();
-            }
-            else {
-              var channelPromise = readyClause.doChannelOperation();
-              channelPromise.then(function (value) { resolve(value); });
-              selectPromise.then(readyClause.callback);
-              selectPromise[routineCanBeRescheduled] =
-                channelPromise[routineCanBeRescheduled];
-            }
-          });
-        }
+        resolveSelectPromise = resolve;
       });
+      selectPromise[isBlockedOnSelect] = true;
+      selectPromise[trySelect] = _trySelect;
     }
     return selectPromise;
 
-    function checkChannels(clauses) {
+    function chooseReadyClause(clauses) {
       var readyClauses = [];
       clauses.forEach(function (caseClause) {
         var clauseCanProceed = caseClause.channel[canProceed](caseClause.type);
@@ -323,12 +321,28 @@ define([], function () {
       });
       if (readyClauses.length) {
         var randomIndex = Math.floor(Math.random() * readyClauses.length);
+        console.log(readyClauses.length);
+        console.log(randomIndex);
         var choosen = readyClauses[randomIndex];
         return choosen;
       }
       return null;
     }
 
+    function _trySelect() {
+      var readyClause = chooseReadyClause(clauses);
+      if (!readyClause) {
+        return false;
+      }
+      else {
+        var channelPromise = readyClause.doChannelOperation();
+        channelPromise.then(function (value) { resolveSelectPromise(value); });
+        selectPromise.then(readyClause.callback);
+        selectPromise[routineCanBeRescheduled] =
+          channelPromise[routineCanBeRescheduled];
+        return selectPromise[routineCanBeRescheduled];
+      }
+    }
   }
 
   function $case(type) {
