@@ -553,7 +553,58 @@ define([], function () {
         });
       });
 
-    });
+      it('accepts case() clauses with send operations as well: bit pattern ' +
+         'test.', function (done) {
+        ya.onerror = function (error) { done(error.error); };
 
+        var channel = ya.channel();
+        var pattern = [1, 0, 0, 0, 1, 0, 0, 1, 0];
+        var expectedPattern = pattern.slice(0);
+        var receivedData = [];
+
+        Math.random = function () {
+          return pattern.shift() ? 0.75 : 0.25;
+        };
+
+        ya(function* () {
+          while (receivedData.length < expectedPattern.length) {
+            var p = yield channel.get();
+            receivedData.push(p);
+          }
+          expect(receivedData).to.deep.equals(expectedPattern);
+          done();
+        });
+
+        ya(function* () {
+          while (true) {
+            yield ya.select(
+              ya.$case('send', 0, channel),
+              ya.$case('send', 1, channel)
+            );
+          }
+        });
+      });
+
+      it('accepts $default() clause that prevent select from blocking.',
+         function (done) {
+        ya.onerror = function (error) { done(error.error); };
+
+        var channel = ya.channel();
+
+        ya(function* () {
+          expect(true).to.be.false;
+        });
+
+        ya(function* () {
+          yield ya.select(
+            ya.$case('send', 0, channel),
+            ya.$default(function () { checkpoint(); })
+          );
+          expect(checkpoint.calledOnce).to.be.true;
+          done();
+        });
+      });
+
+    });
   });
 });

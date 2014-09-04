@@ -294,13 +294,20 @@ define([], function () {
   }
 
   function select() {
-    var clauses = [].slice.call(arguments, 0);
-    var readyClause = chooseReadyClause(clauses);
+    var classifiedClauses = classifyClauses([].slice.call(arguments, 0));
+    var defaultClause = classifiedClauses.defaultClause;
+    var caseClauses = classifiedClauses.caseClauses;
+    var readyClause = chooseReadyCase(caseClauses);
 
     var selectPromise, resolveSelectPromise;
     if (readyClause) {
       selectPromise = readyClause.doChannelOperation();
       selectPromise.then(readyClause.callback);
+    }
+    else if (defaultClause) {
+      selectPromise = Promise.resolve();
+      selectPromise.then(defaultClause.callback);
+      selectPromise[routineCanBeRescheduled] = true;
     }
     else {
       selectPromise = new Promise(function (resolve) {
@@ -311,18 +318,16 @@ define([], function () {
     }
     return selectPromise;
 
-    function chooseReadyClause(clauses) {
+    function chooseReadyCase(cases) {
       var readyClauses = [];
-      clauses.forEach(function (caseClause) {
-        var clauseCanProceed = caseClause.channel[canProceed](caseClause.type);
-        if (clauseCanProceed) {
+      cases.forEach(function (caseClause) {
+        var channelCanProceed = caseClause.channel[canProceed](caseClause.type);
+        if (channelCanProceed) {
           readyClauses.push(caseClause);
         }
       });
       if (readyClauses.length) {
         var randomIndex = Math.floor(Math.random() * readyClauses.length);
-        console.log(readyClauses.length);
-        console.log(randomIndex);
         var choosen = readyClauses[randomIndex];
         return choosen;
       }
@@ -330,7 +335,7 @@ define([], function () {
     }
 
     function _trySelect() {
-      var readyClause = chooseReadyClause(clauses);
+      var readyClause = chooseReadyCase(caseClauses);
       if (!readyClause) {
         return false;
       }
@@ -343,6 +348,26 @@ define([], function () {
         return selectPromise[routineCanBeRescheduled];
       }
     }
+  }
+
+  function classifyClauses(clauses) {
+    var defaultClause, caseClauses = [];
+    clauses.forEach(function (clause) {
+      if (clause instanceof DefaultClause && !defaultClause) {
+        defaultClause = clause;
+      }
+      else if (clause instanceof DefaultClause) {
+        throw new Error('Two default clauses in the same select.');
+      }
+      else {
+        caseClauses.push(clause);
+      }
+    });
+
+    return {
+      defaultClause: defaultClause,
+      caseClauses: caseClauses
+    };
   }
 
   function $case(type) {
@@ -367,6 +392,14 @@ define([], function () {
     return caseClause;
   }
 
+  function $default(callback) {
+    return new DefaultClause(callback);
+  }
+
+  function DefaultClause(callback) {
+    this.callback = callback;
+  }
+
   // The `clear()` method empties the coroutines list avoiding run to executed
   // and stablishes the `clearCalled` flag to be checked in those cases
   // `clear()` is called from inside a routine.
@@ -376,9 +409,17 @@ define([], function () {
   }
 
   // Assemble the module and publish.
-  ya.channel = channel;
-  ya.clear = clear;
-  ya.select = select;
-  ya.$case = $case;
+  var yaInterface = {
+    channel: channel,
+    clear: clear,
+    select: select,
+    $case: $case,
+    $default: $default
+  };
+  for (var method in yaInterface) {
+    if (yaInterface.hasOwnProperty(method)) {
+      ya[method] = yaInterface[method];
+    }
+  }
   return ya;
 });
