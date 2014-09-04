@@ -531,7 +531,7 @@ define([], function () {
         });
       });
 
-      it('$case() callbacks are executed just before the routine is resumed.',
+      it('runs $case() callbacks just before the routine is resumed.',
          function (done) {
         ya.onerror = function (error) { done(error.error); };
 
@@ -553,7 +553,7 @@ define([], function () {
         });
       });
 
-      it('accepts case() clauses with send operations as well: bit pattern ' +
+      it('accepts $case() clauses with send operations as well: bit pattern ' +
          'test.', function (done) {
         ya.onerror = function (error) { done(error.error); };
 
