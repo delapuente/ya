@@ -124,7 +124,7 @@ Sends data to the channel. For unbuffered channels, a `send()` operation blocks 
 
 Using Bower:
 
-    bower install ya
+    bower install ya.js
 
 Or grab the [source](https://raw.githubusercontent.com/lodr/ya/master/dist/ya.js) ([minified](https://raw.githubusercontent.com/lodr/ya/master/dist/ya.min.js)).
 
