@@ -6,7 +6,7 @@
 
 ## Example
 
-Here you have a complete and functional example using ya to calculate... For more examples, please read after the sample code.
+Here you have a complete and functional example. For more examples, please read after the sample code.
 
 ```javascript
 // Make a channel!
@@ -42,7 +42,7 @@ Lots of execution examples can be found inside the [`test/spec/ya.js`](https://r
 
 ## Documentation
 
-You can find the annotated source on http://github.io/lodr/ya but here you have the API documentation.
+You can find the annotated source on http://rawgit.com/lodr/ya/master/docs/ya.html but here you have the API documentation.
 
 ### ya(generator[, ...arguments])
 
