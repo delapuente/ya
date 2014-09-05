@@ -53,9 +53,11 @@ like privates.</p>
   <span class="hljs-comment">/* jshint newcap: false */</span>
   <span class="hljs-keyword">var</span> id = Symbol();
   <span class="hljs-keyword">var</span> isReady = Symbol();
+  <span class="hljs-keyword">var</span> isBlockedOnSelect = Symbol();
+  <span class="hljs-keyword">var</span> trySelect = Symbol();
   <span class="hljs-keyword">var</span> result = Symbol();
   <span class="hljs-keyword">var</span> routineCanBeRescheduled = Symbol();
-  <span class="hljs-keyword">var</span> isNonBlockingSend = Symbol();
+  <span class="hljs-keyword">var</span> canProceed = Symbol();
   <span class="hljs-comment">/* jshint newcap: true */</span></pre></div></div>
             
         </li>
@@ -287,10 +289,7 @@ allowing the scheduler to reschedule the current routine immediately.</p>
             
             <div class="content"><div class='highlight'><pre>        <span class="hljs-keyword">if</span> (promise[routineCanBeRescheduled]) {
           scheduleOperation = <span class="hljs-string">'push'</span>;
-        }
-      }
-
-    }</pre></div></div>
+        }</pre></div></div>
             
         </li>
         
@@ -300,6 +299,45 @@ allowing the scheduler to reschedule the current routine immediately.</p>
               
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+              <p>Copy runtime information to the routine.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        routine[isBlockedOnSelect] = promise[isBlockedOnSelect];
+        routine[trySelect] = promise[trySelect];
+      }
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-17">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+              <p>If routine is not ready but it’s blocking on a select, try the select
+again.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (routine[isBlockedOnSelect]) {
+      <span class="hljs-keyword">var</span> routineCanBeResumed = routine[trySelect]();
+      <span class="hljs-keyword">if</span> (routineCanBeResumed) {
+        scheduleOperation = <span class="hljs-string">'push'</span>;
+      }
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-18">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-18">&#182;</a>
               </div>
               <p>Reschedule the routine.</p>
 
@@ -312,11 +350,11 @@ allowing the scheduler to reschedule the current routine immediately.</p>
         </li>
         
         
-        <li id="section-17">
+        <li id="section-19">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-17">&#182;</a>
+                <a class="pilcrow" href="#section-19">&#182;</a>
               </div>
               <p>And schedule another run.</p>
 
@@ -328,11 +366,11 @@ allowing the scheduler to reschedule the current routine immediately.</p>
         </li>
         
         
-        <li id="section-18">
+        <li id="section-20">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-18">&#182;</a>
+                <a class="pilcrow" href="#section-20">&#182;</a>
               </div>
               <p>The function is isolated to minimize the impact of the try-catch.</p>
 
@@ -344,11 +382,11 @@ allowing the scheduler to reschedule the current routine immediately.</p>
         </li>
         
         
-        <li id="section-19">
+        <li id="section-21">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-19">&#182;</a>
+                <a class="pilcrow" href="#section-21">&#182;</a>
               </div>
               <p>Runs a single routine passing the channel promise’s result from the last
 run. In case of blocking on channel’s operations, the result will be
@@ -365,11 +403,11 @@ sent values for get() operations or <code>undefined</code> for send() operations
         </li>
         
         
-        <li id="section-20">
+        <li id="section-22">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-20">&#182;</a>
+                <a class="pilcrow" href="#section-22">&#182;</a>
               </div>
               <p>If there is an error during the execution, the task is aborted and the
 onerror callback is called with an error object with the task id and the
@@ -386,11 +424,11 @@ real error.</p>
         </li>
         
         
-        <li id="section-21">
+        <li id="section-23">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-21">&#182;</a>
+                <a class="pilcrow" href="#section-23">&#182;</a>
               </div>
               <p>A fake execution is crafted to terminate the execution of the failing
 routine.</p>
@@ -406,11 +444,11 @@ routine.</p>
         </li>
         
         
-        <li id="section-22">
+        <li id="section-24">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-22">&#182;</a>
+                <a class="pilcrow" href="#section-24">&#182;</a>
               </div>
               <p>The channel function returns a new channel object to be used to communicate
 between coroutines. When coroutines send values and there are no consumers
@@ -429,11 +467,11 @@ sending the fourth item or greater.</p>
         </li>
         
         
-        <li id="section-23">
+        <li id="section-25">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-23">&#182;</a>
+                <a class="pilcrow" href="#section-25">&#182;</a>
               </div>
               <p>An unbuffered channel does not allow any unattended item. Each send()
 call will block unless there is a getter waiting for the value.</p>
@@ -445,11 +483,11 @@ call will block unless there is a getter waiting for the value.</p>
         </li>
         
         
-        <li id="section-24">
+        <li id="section-26">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-24">&#182;</a>
+                <a class="pilcrow" href="#section-26">&#182;</a>
               </div>
               <p>When a value is sent to the channel but there is no one asking for that
 value, we promise the sender that someone will retrieve the value and we
@@ -462,11 +500,11 @@ add a the promise resolver and the sent value to this collection.</p>
         </li>
         
         
-        <li id="section-25">
+        <li id="section-27">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-25">&#182;</a>
+                <a class="pilcrow" href="#section-27">&#182;</a>
               </div>
               <p>When a value is requested from the channel but there is no data available
 we promise the getter that someone will send a value to be consumed and
@@ -479,26 +517,26 @@ we add the resolver for that promise.</p>
         </li>
         
         
-        <li id="section-26">
+        <li id="section-28">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-26">&#182;</a>
+                <a class="pilcrow" href="#section-28">&#182;</a>
               </div>
               <p>The channel object consists in two methods: get() and send().</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">return</span> {</pre></div></div>
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> channelInterface = {</pre></div></div>
             
         </li>
         
         
-        <li id="section-27">
+        <li id="section-29">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-27">&#182;</a>
+                <a class="pilcrow" href="#section-29">&#182;</a>
               </div>
               <p>get() is for retrieving values from the channel.</p>
 
@@ -510,11 +548,11 @@ we add the resolver for that promise.</p>
         </li>
         
         
-        <li id="section-28">
+        <li id="section-30">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-28">&#182;</a>
+                <a class="pilcrow" href="#section-30">&#182;</a>
               </div>
               <p>First check if there are values to be consumed. If so, there will be
 promises’ resolvers in addition to the values being sent.</p>
@@ -526,11 +564,11 @@ promises’ resolvers in addition to the values being sent.</p>
         </li>
         
         
-        <li id="section-29">
+        <li id="section-31">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-29">&#182;</a>
+                <a class="pilcrow" href="#section-31">&#182;</a>
               </div>
               <p>Each promise entry consists on a value and the resolver to tell
 the sender that its value is about to be consumed and it will
@@ -547,11 +585,11 @@ be unblocked.</p>
         </li>
         
         
-        <li id="section-30">
+        <li id="section-32">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-30">&#182;</a>
+                <a class="pilcrow" href="#section-32">&#182;</a>
               </div>
               <p>Unblocks the sender! But notice it won’t be executed until run
 will be called again.</p>
@@ -565,11 +603,11 @@ channels may not require to always warn senders.</p>
         </li>
         
         
-        <li id="section-31">
+        <li id="section-33">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-31">&#182;</a>
+                <a class="pilcrow" href="#section-33">&#182;</a>
               </div>
               <p>As the collection of unattended items has shifted, it’s possible
 for a blocked routine to have entered into the buffered section
@@ -587,11 +625,11 @@ of the channel. If so, the routine can be unblocked.</p>
         </li>
         
         
-        <li id="section-32">
+        <li id="section-34">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-32">&#182;</a>
+                <a class="pilcrow" href="#section-34">&#182;</a>
               </div>
               <p>We will return an already solved promise to the getter with the
 value to be consumed.</p>
@@ -603,11 +641,11 @@ value to be consumed.</p>
         </li>
         
         
-        <li id="section-33">
+        <li id="section-35">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-33">&#182;</a>
+                <a class="pilcrow" href="#section-35">&#182;</a>
               </div>
               <p>The scheduler is informed it can reschedule the coroutine
 immediately.</p>
@@ -620,11 +658,11 @@ immediately.</p>
         </li>
         
         
-        <li id="section-34">
+        <li id="section-36">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-34">&#182;</a>
+                <a class="pilcrow" href="#section-36">&#182;</a>
               </div>
               <p>In the other hand, if there are no values to be consumed, we make
 a promise and leave the resolver as a way for the getter to be
@@ -644,11 +682,11 @@ notified when a value is available.</p>
         </li>
         
         
-        <li id="section-35">
+        <li id="section-37">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-35">&#182;</a>
+                <a class="pilcrow" href="#section-37">&#182;</a>
               </div>
               <p>send() is for sending values to the channel.</p>
 
@@ -660,11 +698,11 @@ notified when a value is available.</p>
         </li>
         
         
-        <li id="section-36">
+        <li id="section-38">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-36">&#182;</a>
+                <a class="pilcrow" href="#section-38">&#182;</a>
               </div>
               <p>First check if there are petitioners waiting to be provided with
 values for consuming.</p>
@@ -676,11 +714,11 @@ values for consuming.</p>
         </li>
         
         
-        <li id="section-37">
+        <li id="section-39">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-37">&#182;</a>
+                <a class="pilcrow" href="#section-39">&#182;</a>
               </div>
               <p>Each entry simply consists in a resolver to notify the getter with
 the sending value.</p>
@@ -692,11 +730,11 @@ the sending value.</p>
         </li>
         
         
-        <li id="section-38">
+        <li id="section-40">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-38">&#182;</a>
+                <a class="pilcrow" href="#section-40">&#182;</a>
               </div>
               <p>Unblocks the getter! And again, it won’t be executed until the
 next run.</p>
@@ -708,11 +746,11 @@ next run.</p>
         </li>
         
         
-        <li id="section-39">
+        <li id="section-41">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-39">&#182;</a>
+                <a class="pilcrow" href="#section-41">&#182;</a>
               </div>
               <p>We will return an already resolved promise to the sender saying
 its value has been consumed immediately.</p>
@@ -724,28 +762,28 @@ its value has been consumed immediately.</p>
         </li>
         
         
-        <li id="section-40">
+        <li id="section-42">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-40">&#182;</a>
+                <a class="pilcrow" href="#section-42">&#182;</a>
               </div>
               <p>And again, the promise will inform the scheduler it can
 reschedule the routine immediately.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>          promiseForTheSender[isNonBlockingSend] = <span class="hljs-literal">true</span>;
+            <div class="content"><div class='highlight'><pre>          promiseForTheSender[routineCanBeRescheduled] = <span class="hljs-literal">true</span>;
         }</pre></div></div>
             
         </li>
         
         
-        <li id="section-41">
+        <li id="section-43">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-41">&#182;</a>
+                <a class="pilcrow" href="#section-43">&#182;</a>
               </div>
               <p>If there are no petitioners waiting for values, promise the sender
 its value will be consumed by enqueuing a pair of promise resolver
@@ -760,11 +798,11 @@ and the value to be consumed.</p>
         </li>
         
         
-        <li id="section-42">
+        <li id="section-44">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-42">&#182;</a>
+                <a class="pilcrow" href="#section-44">&#182;</a>
               </div>
               <p>If the buffer is not full, the promise can be fulfilled and the
 routine can be immediately resumed.</p>
@@ -780,11 +818,11 @@ routine can be immediately resumed.</p>
         </li>
         
         
-        <li id="section-43">
+        <li id="section-45">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-43">&#182;</a>
+                <a class="pilcrow" href="#section-45">&#182;</a>
               </div>
               <p>But if it’s full, then the promise remains and the sender will
 block until someone consumes the value.</p>
@@ -800,17 +838,458 @@ block until someone consumes the value.</p>
 
         <span class="hljs-keyword">return</span> promiseForTheSender;
       }
+    };</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-46">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-46">&#182;</a>
+              </div>
+              <p>This is a private method implemented through the use of a symbol.
+The <code>channel#canProceed()</code> method return <code>true</code> if the channel is ready
+to send or get a value without blocking the routine. It is equivalent
+to check if the returning promise will have the <code>routineCanBeRescheduled</code>
+set.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    channelInterface[canProceed] = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(type)</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-47">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-47">&#182;</a>
+              </div>
+              <p>A channel is ready for a <code>get</code> operation if there are waiting
+producers.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> (type === <span class="hljs-string">'get'</span>) {
+        <span class="hljs-keyword">return</span> toBeRetrievedPromises.length &gt; <span class="hljs-number">0</span>;
+      }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-48">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-48">&#182;</a>
+              </div>
+              <p>A channel is ready for a <code>send</code> operation if there are waiting
+consumers or if the channel is not yet full.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (type === <span class="hljs-string">'send'</span>) {
+        <span class="hljs-keyword">return</span> toBeFilledPromises.length &gt; <span class="hljs-number">0</span> ||
+               toBeRetrievedPromises.length &lt; capacity;
+      }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-49">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-49">&#182;</a>
+              </div>
+              <p>Throw if the operation is not recognized.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">'Channel operation unknown'</span>);
+      }
+    };
+    <span class="hljs-keyword">return</span> channelInterface;
+  }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-50">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-50">&#182;</a>
+              </div>
+              <p>Select implements <a href="https://golang.org/ref/spec#Select_statements">https://golang.org/ref/spec#Select_statements</a>
+Read it first, it’s eeeeeasy (or read the API docs).</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">select</span><span class="hljs-params">()</span> </span>{
+    <span class="hljs-keyword">var</span> selectPromise, resolveSelectPromise;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-51">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-51">&#182;</a>
+              </div>
+              <p>Obtain clauses classified by nature.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> classifiedClauses = classifyClauses([].slice.call(<span class="hljs-built_in">arguments</span>, <span class="hljs-number">0</span>));
+    <span class="hljs-keyword">var</span> defaultClause = classifiedClauses.defaultClause;
+    <span class="hljs-keyword">var</span> caseClauses = classifiedClauses.caseClauses;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-52">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-52">&#182;</a>
+              </div>
+              <p>Now look for a ready case clause, i. e. a case clause with a channel
+ready for the specified operation.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">var</span> readyCase = chooseReadyCase(caseClauses);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-53">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-53">&#182;</a>
+              </div>
+              <p>If there is one, perform the channel operation and attach the clause
+callback.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">if</span> (readyCase) {
+      selectPromise = readyCase.doChannelOperation();
+      selectPromise.then(readyCase.callback);
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-54">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-54">&#182;</a>
+              </div>
+              <p>If not but there is a default clause, perform the default callback.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (defaultClause) {
+      selectPromise = Promise.resolve();
+      selectPromise.then(defaultClause.callback);
+      selectPromise[routineCanBeRescheduled] = <span class="hljs-literal">true</span>;
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-55">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-55">&#182;</a>
+              </div>
+              <p>If there is no ready channel and there is no default, block.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">else</span> {
+      selectPromise = <span class="hljs-keyword">new</span> Promise(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(resolve)</span> </span>{
+        resolveSelectPromise = resolve;
+      });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-56">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-56">&#182;</a>
+              </div>
+              <p>As <code>routineCanBeRescheduled</code> this is more execution information. It
+informs the routine is blocked on a <code>select</code> and provide a method to
+recheck channel readyness.
+TODO: Find a way to pass the execution information separately.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      selectPromise[isBlockedOnSelect] = <span class="hljs-literal">true</span>;
+      selectPromise[trySelect] = _trySelect;
+    }
+    <span class="hljs-keyword">return</span> selectPromise;</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-57">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-57">&#182;</a>
+              </div>
+              <p>The function selects a ready case clause. A ready case is that whose
+channel operation can be performed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">chooseReadyCase</span><span class="hljs-params">(cases)</span> </span>{
+      <span class="hljs-keyword">var</span> choosen = <span class="hljs-literal">null</span>;
+      <span class="hljs-keyword">var</span> readyClauses = [];
+      cases.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(caseClause)</span> </span>{
+        <span class="hljs-keyword">var</span> channelCanProceed = caseClause.channel[canProceed](caseClause.type);
+        <span class="hljs-keyword">if</span> (channelCanProceed) {
+          readyClauses.push(caseClause);
+        }
+      });</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-58">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-58">&#182;</a>
+              </div>
+              <p>If there are more than one, select one randomly.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> (readyClauses.length) {
+        <span class="hljs-keyword">var</span> randomIndex = <span class="hljs-built_in">Math</span>.floor(<span class="hljs-built_in">Math</span>.random() * readyClauses.length);
+        choosen = readyClauses[randomIndex];
+      }
+
+      <span class="hljs-keyword">return</span> choosen;
+    }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-59">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-59">&#182;</a>
+              </div>
+              <p>The function re-check the select returning <code>true</code> if the select could
+choose some ready channel or not. It’s equivalent to foresee if the
+returning promise from the channel operation will carry the
+<code>routineCanBeRescheduled</code> flag set to <code>true</code>.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_trySelect</span><span class="hljs-params">()</span> </span>{</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-60">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-60">&#182;</a>
+              </div>
+              <p>Choose one clause.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">var</span> readyClause = chooseReadyCase(caseClauses);</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-61">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-61">&#182;</a>
+              </div>
+              <p>If there are no ready channels…</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> (!readyClause) {
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;
+      }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-62">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-62">&#182;</a>
+              </div>
+              <p>If there are, associate the returned select promise with the channel
+one and carry the <code>routineCanBeRescheduled</code> flag.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">var</span> channelPromise = readyClause.doChannelOperation();
+        channelPromise.then(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(value)</span> </span>{ resolveSelectPromise(value); });
+        selectPromise.then(readyClause.callback);
+        selectPromise[routineCanBeRescheduled] =
+          channelPromise[routineCanBeRescheduled];
+        <span class="hljs-keyword">return</span> selectPromise[routineCanBeRescheduled];
+      }
+    }
+  }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-63">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-63">&#182;</a>
+              </div>
+              <p>Pass through a collection of clauses and classify them into <strong>case</strong> and
+<strong>default</strong> clause. Only one <strong>dafeault</strong> clause is allowed.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">classifyClauses</span><span class="hljs-params">(clauses)</span> </span>{
+    <span class="hljs-keyword">var</span> defaultClause, caseClauses = [];
+    clauses.forEach(<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(clause)</span> </span>{
+      <span class="hljs-keyword">if</span> (clause <span class="hljs-keyword">instanceof</span> DefaultClause &amp;&amp; !defaultClause) {
+        defaultClause = clause;
+      }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-64">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-64">&#182;</a>
+              </div>
+              <p>Throw if more than one <strong>default</strong> clause is found.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (clause <span class="hljs-keyword">instanceof</span> DefaultClause) {
+        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">'Two default clauses in the same select.'</span>);
+      }
+
+      <span class="hljs-keyword">else</span> {
+        caseClauses.push(clause);
+      }
+    });
+
+    <span class="hljs-keyword">return</span> {
+      defaultClause: defaultClause,
+      caseClauses: caseClauses
     };
   }</pre></div></div>
             
         </li>
         
         
-        <li id="section-44">
+        <li id="section-65">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-44">&#182;</a>
+                <a class="pilcrow" href="#section-65">&#182;</a>
+              </div>
+              <p>The <strong>case</strong> factory returns a <code>CaseClause</code> instance.
+TODO: Refactor to use a future <code>CaseClause</code> class.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">$case</span><span class="hljs-params">(type)</span> </span>{
+    <span class="hljs-keyword">var</span> caseClause = { type: type };
+    <span class="hljs-keyword">if</span> (type === <span class="hljs-string">'get'</span> || type === <span class="hljs-string">'&lt;-'</span>) {
+      caseClause.type = <span class="hljs-string">'get'</span>;
+      caseClause.channel = <span class="hljs-built_in">arguments</span>[<span class="hljs-number">1</span>];
+      caseClause.callback = <span class="hljs-built_in">arguments</span>[<span class="hljs-number">2</span>];
+    }
+    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (type === <span class="hljs-string">'send'</span> || type === <span class="hljs-string">'-&gt;'</span>) {
+      caseClause.type = <span class="hljs-string">'send'</span>;
+      caseClause.sendingValue = <span class="hljs-built_in">arguments</span>[<span class="hljs-number">1</span>];
+      caseClause.channel = <span class="hljs-built_in">arguments</span>[<span class="hljs-number">2</span>];
+      caseClause.callback = <span class="hljs-built_in">arguments</span>[<span class="hljs-number">3</span>];
+    }
+    <span class="hljs-keyword">else</span> {
+      <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Error</span>(<span class="hljs-string">'Unknown channel operation.'</span>);
+    }
+    caseClause.doChannelOperation = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span> </span>{
+      <span class="hljs-keyword">return</span> caseClause.channel[caseClause.type](caseClause.sendingValue);
+    };
+    <span class="hljs-keyword">return</span> caseClause;
+  }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-66">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-66">&#182;</a>
+              </div>
+              <p>The <strong>default</strong> factory returns a <code>DefaultClause</code> instance.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">$default</span><span class="hljs-params">(callback)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> DefaultClause(callback);
+  }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-67">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-67">&#182;</a>
+              </div>
+              <p>The <code>DefaultClause</code> instance holds no mistiries inside.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">DefaultClause</span><span class="hljs-params">(callback)</span> </span>{
+    <span class="hljs-keyword">this</span>.callback = callback;
+  }</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-68">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-68">&#182;</a>
               </div>
               <p>The <code>clear()</code> method empties the coroutines list avoiding run to executed
 and stablishes the <code>clearCalled</code> flag to be checked in those cases
@@ -826,18 +1305,28 @@ and stablishes the <code>clearCalled</code> flag to be checked in those cases
         </li>
         
         
-        <li id="section-45">
+        <li id="section-69">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-45">&#182;</a>
+                <a class="pilcrow" href="#section-69">&#182;</a>
               </div>
               <p>Assemble the module and publish.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>  ya.channel = channel;
-  ya.clear = clear;
+            <div class="content"><div class='highlight'><pre>  <span class="hljs-keyword">var</span> yaInterface = {
+    channel: channel,
+    clear: clear,
+    select: select,
+    $<span class="hljs-keyword">case</span>: $<span class="hljs-keyword">case</span>,
+    $<span class="hljs-keyword">default</span>: $<span class="hljs-keyword">default</span>
+  };
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> method <span class="hljs-keyword">in</span> yaInterface) {
+    <span class="hljs-keyword">if</span> (yaInterface.hasOwnProperty(method)) {
+      ya[method] = yaInterface[method];
+    }
+  }
   <span class="hljs-keyword">return</span> ya;
 });</pre></div></div>
             

@@ -58,6 +58,60 @@ Returns a new channel. A channel is a way to communicate coroutines sending and 
 
 If a capacity greater than 0 is provided, the channel is said to be buffered. This allow sending coroutines to not block until enough data is sent to the channel. Precisely the same amount of data indicated by the `capacity` parameter.
 
+### ya.select(ya.$case, [ya.$case | ya.$default]*)
+
+Allow a routine to block on more than one channel operation simultaneously. Operations are declared by calling `ya.$case()` or `ya.$default()` functions imitating the syntax of [go select](https://golang.org/ref/spec#Select_statements). If there are ready channels for the specified operations, one of these operations is randomly choosen and performed. If there is no channel ready, then the function blocks unless a **default** operation has been passed to select. What to do in case of **default** or channel operation is passed as a callback.
+
+**Examples**:
+
+```javascript
+// A random bitstream generator
+ya(function* bitstream(channel) {
+  while (true) {
+    yield select(
+      ya.$case('send', 0, channel, function () { console.log('Sending 0'); }),
+      ya.$case('send', 1, channel, function () { console.log('Sending 1'); })
+    );
+  }
+});
+
+// Non blocking send
+ya(function* (channel) {
+  var data = {};
+  while (true) {
+    yield select(
+      ya.$case('send', data, channel),
+      ya.$default(function () { console.log('Not blocking!') });
+    );
+  }
+});
+
+// Listen for two channels simultaneously
+ya(function* (chnA, chnB) {
+  while (true) {
+    var v;
+    yield select(
+      ya.$case('get', chnA, function (data) {
+        console.log('Received by chnA'); v = data;
+      }),
+      ya.$case('get', chnB, function (data) {
+        console.log('Received by chnB');
+        v = data;
+      })
+    );
+    console.log('Data received: ', v);
+  }
+});
+```
+
+#### ya.$case(type[, sendingValue], channel[, callback])
+
+Create a `case` clause with the type of the operation: `get` or `send`, then `sendingValue` for send operations, the targeted `channel` and an optional callback to be executed when the channel is ready and selected by the `ya.select()` function. For the `get` operation, the got value is passed to the callback.
+
+#### ya.$default([callback])
+
+Create a **default clause** to be used as a parameter for `ya.select()` function. If provided and in case of any of the channels is ready, the default's `callback` is called instead.
+
 ### channel#get()
 
 Gets a value from the channel. It must be used with `yield` so the coroutine can block if there is no data to be consumed.

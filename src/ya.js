@@ -91,11 +91,14 @@ define([], function () {
           scheduleOperation = 'push';
         }
 
+        // Copy runtime information to the routine.
         routine[isBlockedOnSelect] = promise[isBlockedOnSelect];
         routine[trySelect] = promise[trySelect];
       }
     }
 
+    // If routine is not ready but it's blocking on a select, try the select
+    // again.
     else if (routine[isBlockedOnSelect]) {
       var routineCanBeResumed = routine[trySelect]();
       if (routineCanBeResumed) {
@@ -278,14 +281,27 @@ define([], function () {
       }
     };
 
+    // This is a private method implemented through the use of a symbol.
+    // The `channel#canProceed()` method return `true` if the channel is ready
+    // to send or get a value without blocking the routine. It is equivalent
+    // to check if the returning promise will have the `routineCanBeRescheduled`
+    // set.
     channelInterface[canProceed] = function (type) {
+
+      // A channel is ready for a `get` operation if there are waiting
+      // producers.
       if (type === 'get') {
         return toBeRetrievedPromises.length > 0;
       }
+
+      // A channel is ready for a `send` operation if there are waiting
+      // consumers or if the channel is not yet full.
       else if (type === 'send') {
         return toBeFilledPromises.length > 0 ||
                toBeRetrievedPromises.length < capacity;
       }
+
+      // Throw if the operation is not recognized.
       else {
         throw new Error('Channel operation unknown');
       }
@@ -293,32 +309,53 @@ define([], function () {
     return channelInterface;
   }
 
+  // Select implements https://golang.org/ref/spec#Select_statements
+  // Read it first, it's eeeeeasy (or read the API docs).
   function select() {
+    var selectPromise, resolveSelectPromise;
+
+    // Obtain clauses classified by nature.
     var classifiedClauses = classifyClauses([].slice.call(arguments, 0));
     var defaultClause = classifiedClauses.defaultClause;
     var caseClauses = classifiedClauses.caseClauses;
-    var readyClause = chooseReadyCase(caseClauses);
 
-    var selectPromise, resolveSelectPromise;
-    if (readyClause) {
-      selectPromise = readyClause.doChannelOperation();
-      selectPromise.then(readyClause.callback);
+    // Now look for a ready case clause, i. e. a case clause with a channel
+    // ready for the specified operation.
+    var readyCase = chooseReadyCase(caseClauses);
+
+    // If there is one, perform the channel operation and attach the clause
+    // callback.
+    if (readyCase) {
+      selectPromise = readyCase.doChannelOperation();
+      selectPromise.then(readyCase.callback);
     }
+
+    // If not but there is a default clause, perform the default callback.
     else if (defaultClause) {
       selectPromise = Promise.resolve();
       selectPromise.then(defaultClause.callback);
       selectPromise[routineCanBeRescheduled] = true;
     }
+
+    // If there is no ready channel and there is no default, block.
     else {
       selectPromise = new Promise(function (resolve) {
         resolveSelectPromise = resolve;
       });
+
+      // As `routineCanBeRescheduled` this is more execution information. It
+      // informs the routine is blocked on a `select` and provide a method to
+      // recheck channel readyness.
+      // TODO: Find a way to pass the execution information separately.
       selectPromise[isBlockedOnSelect] = true;
       selectPromise[trySelect] = _trySelect;
     }
     return selectPromise;
 
+    // The function selects a ready case clause. A ready case is that whose
+    // channel operation can be performed.
     function chooseReadyCase(cases) {
+      var choosen = null;
       var readyClauses = [];
       cases.forEach(function (caseClause) {
         var channelCanProceed = caseClause.channel[canProceed](caseClause.type);
@@ -326,19 +363,32 @@ define([], function () {
           readyClauses.push(caseClause);
         }
       });
+
+      // If there are more than one, select one randomly.
       if (readyClauses.length) {
         var randomIndex = Math.floor(Math.random() * readyClauses.length);
-        var choosen = readyClauses[randomIndex];
-        return choosen;
+        choosen = readyClauses[randomIndex];
       }
-      return null;
+
+      return choosen;
     }
 
+    // The function re-check the select returning `true` if the select could
+    // choose some ready channel or not. It's equivalent to foresee if the
+    // returning promise from the channel operation will carry the
+    // `routineCanBeRescheduled` flag set to `true`.
     function _trySelect() {
+
+      // Choose one clause.
       var readyClause = chooseReadyCase(caseClauses);
+
+      // If there are no ready channels...
       if (!readyClause) {
         return false;
       }
+
+      // If there are, associate the returned select promise with the channel
+      // one and carry the `routineCanBeRescheduled` flag.
       else {
         var channelPromise = readyClause.doChannelOperation();
         channelPromise.then(function (value) { resolveSelectPromise(value); });
@@ -350,15 +400,20 @@ define([], function () {
     }
   }
 
+  // Pass through a collection of clauses and classify them into **case** and
+  // **default** clause. Only one **dafeault** clause is allowed.
   function classifyClauses(clauses) {
     var defaultClause, caseClauses = [];
     clauses.forEach(function (clause) {
       if (clause instanceof DefaultClause && !defaultClause) {
         defaultClause = clause;
       }
+
+      // Throw if more than one **default** clause is found.
       else if (clause instanceof DefaultClause) {
         throw new Error('Two default clauses in the same select.');
       }
+
       else {
         caseClauses.push(clause);
       }
@@ -370,6 +425,8 @@ define([], function () {
     };
   }
 
+  // The **case** factory returns a `CaseClause` instance.
+  // TODO: Refactor to use a future `CaseClause` class.
   function $case(type) {
     var caseClause = { type: type };
     if (type === 'get' || type === '<-') {
@@ -392,10 +449,12 @@ define([], function () {
     return caseClause;
   }
 
+  // The **default** factory returns a `DefaultClause` instance.
   function $default(callback) {
     return new DefaultClause(callback);
   }
 
+  // The `DefaultClause` instance holds no mistiries inside.
   function DefaultClause(callback) {
     this.callback = callback;
   }
