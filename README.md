@@ -6,8 +6,6 @@
 
 ## Example
 
-Here you have a complete and functional example. For more examples, please read after the sample code.
-
 ```javascript
 // Make a channel!
 var pings = ya.channel();
@@ -19,7 +17,7 @@ ya(function* ping(pings) {
   }
 });
 
-// Launch a coroutine to stay in the middle o both computations
+// Launch a coroutine to stay in the middle o both computations.
 ya(function* () {
   var count = 1;
   while (true) {
@@ -38,7 +36,9 @@ ya(function* pong(pings) {
 });
 ```
 
-Lots of execution examples can be found inside the [`test/spec/ya.js`](https://raw.githubusercontent.com/lodr/ya/master/test/spec/ya.js) file. As the library is growing in maturity, please feel free to open issues on GitHub if you consider the behaviour is not the expected (I'm not a _go guru_ so any feedback is welcome). 
+Some execution examples can be found inside the [`test/spec/ya.js`](https://raw.githubusercontent.com/lodr/ya/master/test/spec/ya.js) file. As the library is growing in maturity, please feel free to open issues on GitHub if you consider the behaviour is not the expected (I'm not a _go guru_ so any feedback is welcome).
+
+More examples can be found inside [`examples/`](https://github.com/lodr/ya/tree/master/examples) folder. Explore the [dinning philosophers problem](http://rawgit.com/lodr/ya/master/examples/dinning-philosophers.html) (open the console in a Firefox to see the logs) solved with ya!
 
 ## Documentation
 

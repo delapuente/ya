@@ -1,0 +1,116 @@
+<meta charset="utf-8" />
+<script src="../dist/ya.js"></script>
+<script>
+  'use strict';
+
+  var BITES = 3;
+  var philosophers = ['Aristotle', 'Kant', 'Spinoza', 'Marx', 'Russell'];
+  var fork = {};
+
+  // The channel is used by the philosopher to notify they finished.
+  var done = ya.channel();
+  ya.onerror = function (error) { throw error.error; };
+
+  // A simple logger.
+  function getLog(name) {
+    return function (message) {
+      console.log(name + ' says: ', message);
+    }
+  }
+
+  // The timeout function returns a promise, waits from 1 to 3 seconds and then
+  // fulfill the promise. Following task.js style, ya! allows you to block on
+  // promise returning functions and resuming execution once promises are
+  // fulfilled.
+  function timeout() {
+    var seconds = Math.floor(Math.random() * 2) + 1;
+    return new Promise(function (resolve) {
+      setTimeout(function () { resolve(); }, seconds * 1000);
+    });
+  }
+
+  // Some convenient alias.
+  function eat() {
+    return timeout();
+  }
+
+  function think() {
+    return timeout();
+  }
+
+  // The philosopher is a generator so we can use `yield` inside for blocking.
+  function* philosopher(name, lefthand, righthand, done) {
+    var log = getLog(name);
+    for (var i = 0; i < BITES; i++) {
+
+      // Once the philosopher is getting hungry, he try to get forks with
+      // both hands blocking if there is no fork on one of his hands.
+      log('Getting hungry (' + (i + 1) + ' of ' + BITES + ')...');
+      yield lefthand.get();
+      yield righthand.get();
+
+      // After waiting for the forks, he eats. Notice we block on `eat()` as
+      // well. After timeout, the routine will be resumed.
+      log('Eating...');
+      yield eat();
+
+      // After eating the philosopher drops both forks, despite `yield`, these
+      // lines won't block because fork channels are buffered as you'll see
+      // later.
+      yield righthand.send(fork);
+      yield lefthand.send(fork);
+
+      // And he thinks.
+      log('Thinking...');
+      yield think();
+    }
+
+    // Once he's satisfied, notify he's leaving without blocking. Notice, there
+    // is no `yield`.
+    log('Satisfied');
+    done.send(true);
+    log('Leaving the table.');
+  }
+
+  // The maitre is another generator in charge of sit the philosophers and set
+  // the table.
+  function* maitre() {
+    var log = getLog('maitre');
+
+    // He designates the place for the first fork. Each fork place will be
+    // a channel with room for one item (the fork).
+    var firstPlace = ya.channel(1);
+    var leftPlace = firstPlace,
+        rightPlace;
+
+    // He puts the first fork.
+    yield leftPlace.send(fork);
+
+    // And sit all the philosophers except one, making them to share one fork.
+    for (var p = 0; p < philosophers.length - 1; p++) {
+      var name = philosophers[p];
+      
+      // For each philosopher, the maitre sets a new right fork.
+      rightPlace = ya.channel(1);
+      yield rightPlace.send(fork);
+      ya(philosopher, name, leftPlace, rightPlace, done);
+
+      // Finally, the right fork for this philosopher becomes the left fork for
+      // the next one.
+      leftPlace = rightPlace;
+    }
+    // The last philosopher is sat in such a way he has the first fork in his
+    // right hand.
+    ya(philosopher, philosophers[p], leftPlace, firstPlace, done);
+
+    // Once all the philosophers are sat. The maitre waits for each of them.
+    for (var p = 0; p < philosophers.length; p++) {
+      yield done.get();
+    }
+
+    log('All philosophers are happy!');
+  }
+
+  ya(maitre);
+</script>
+
