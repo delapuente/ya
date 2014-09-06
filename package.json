@@ -1,6 +1,6 @@
 {
   "name": "ya",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "dist/ya.min.js",
   "description": "ya! is a goroutine implementation in ES6 using generators and promises, i.e. tasks.",
   "repository": {
